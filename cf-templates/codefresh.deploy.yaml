@@ -1,0 +1,40 @@
+version: '1.0'
+stages:
+  - compile 
+  - test 
+  - docker 
+steps:
+  
+  IntegrationTest:
+    type: composition
+    composition: dotnetapp
+    composition_candidates:
+      test_service:
+        image: alpine
+        command: ping dotnetapp -c 4
+    on_success:
+      metadata:
+        set:
+          - '${{BuildImage.imageId}}':
+              - CF_QUALITY: true
+    on_fail:
+      metadata:
+        set:
+          - '${{BuildImage.imageId}}':
+              - CF_QUALITY: false
+  
+  DeployWithHelm:
+    image: codefresh/plugin-helm:2.7.2
+    working_directory: ./
+    environment:
+      #the variables below you could as well set in the 'General Settings' section of the pipeline UI
+      - CHART_NAME=./chart/dotnet-sample-app/
+      - RELEASE_NAME=dotnetcore
+      - KUBE_CONTEXT=cf-staging@codefresh-staging
+      - NAMESPACE=demo
+      # below you can add your overrides for the chart values.yaml
+      - custom_replicaCount=2
+      - custom_service_externalPort=80
+      - custom_image_repository=r.cfcr.io/codefreshdemo/codefreshdemo/dotnetdockersamples
+      - custom_image_tag=master
+      - custom_imagePullSecret=codefresh-generated-r.cfcr.io-cfcr-demo
